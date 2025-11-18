@@ -1,0 +1,33 @@
+User
+- UserID        INTEGER       PK AUTOINCREMENT
+- AccountNo     CHAR(8)       UNIQUE NOT NULL   -- 学生=Sno；教师=Tno(建议000开头)；管理员=12345678
+- PasswordHash  VARCHAR(256)  NOT NULL
+- Role          VARCHAR(16)   NOT NULL         -- 'admin' | 'teacher' | 'student'
+
+Student
+- Sno    CHAR(8)      PK, FK -> User(AccountNo)
+- Sname  VARCHAR(64)  NOT NULL
+- Ssex   VARCHAR(8)   NOT NULL
+- Sdept  VARCHAR(64)  NOT NULL
+- Sage   INTEGER      NULL
+
+Teacher
+- Tno    CHAR(8)      PK, FK -> User(AccountNo)   -- 主键+外键
+- Tname  VARCHAR(64)  NOT NULL
+- Tdept  VARCHAR(64)  NULL
+- Tsex   VARCHAR(8)   NULL
+
+Course
+- Cno      VARCHAR(32)  NOT NULL
+- Ctno     CHAR(8)      NOT NULL  FK -> Teacher(Tno)   -- 任课教师
+- Cname    VARCHAR(128) NOT NULL
+- Ccredit  DECIMAL(4,1) NOT NULL
+PRIMARY KEY (Cno, Ctno)                                  
+
+SC
+- Sno    CHAR(8)      NOT NULL  FK -> Student(Sno)
+- Cno    VARCHAR(32)  NOT NULL
+- Tno    CHAR(8)      NOT NULL
+- grade  VARCHAR(8)   NULL
+PRIMARY KEY (Sno, Cno, Tno)
+FOREIGN KEY (Cno, Tno) REFERENCES Course(Cno, Ctno) ON DELETE CASCADE
