@@ -154,25 +154,26 @@ def admin_delete_course(Cno: str, Ctno: str,
         raise HTTPException(404, "课程不存在")
     return {"ok": True}
 
-@app.get("/api/admin/enrollments", response_model=List[schemas.EnrollmentOut])
+@app.get("/api/admin/enrollments", response_model=List[schemas.AdminEnrollmentOut])  # 改用 AdminEnrollmentOut
 def admin_list_enrollments(Sno: Optional[str] = Query(None),
                            Cno: Optional[str] = Query(None),
                            Tno: Optional[str] = Query(None),
                            current=Depends(require_role(["admin"])),
                            db: Session = Depends(get_db)):
     rows = crud.list_enrollments(db, Sno=Sno, Cno=Cno, Tno=Tno)
-    return [{
+    return [ _normalize_grade({
         "Sno": sc.Sno, "Sname": sname,
         "Cno": sc.Cno, "Tno": sc.Tno, "Cname": cname,
         "grade": sc.grade
-    } for sc, sname, cname in rows]
+    }) for sc, sname, cname in rows]
 
 @app.put("/api/admin/enrollments/{Sno}/{Cno}/{Tno}/grade")
 def admin_update_grade(Sno: str, Cno: str, Tno: str,
                        body: schemas.GradeUpdate,
                        current=Depends(require_role(["admin"])),
                        db: Session = Depends(get_db)):
-    sc = crud.set_grade(db, Sno, Cno, Tno, body.grade if body.grade is not None else None)
+    grade_val = None if (body.grade is None or body.grade == "") else int(body.grade)
+    sc = crud.set_grade(db, Sno, Cno, Tno, grade_val)
     if not sc:
         raise HTTPException(404, "记录不存在")
     return {"ok": True}
@@ -244,14 +245,14 @@ def student_unenroll(Cno: str, Tno: str,
 def student_my_enrollments(current=Depends(require_role(["student"])), db: Session = Depends(get_db)):
     sno = current["account_no"]
     rows = crud.list_enrollments_by_student(db, sno)
-    return [{
+    return [ _normalize_grade({
         "Cno": sc.Cno,
         "Tno": sc.Tno,
         "Tname": tname,
         "Cname": cname,
         "Ccredit": ccredit,
         "grade": sc.grade
-    } for sc, cname, ccredit, tname in rows]
+    }) for sc, cname, ccredit, tname in rows]
 
 # ========== 教师端 ==========
 
@@ -288,19 +289,19 @@ def teacher_enrollments(Cno: Optional[str] = Query(None),
                         current=Depends(require_role(["teacher"])),
                         db: Session = Depends(get_db)):
     rows = crud.list_enrollments_by_teacher(db, current["account_no"], Cno=Cno, search=search)
-    return [{
+    return [ _normalize_grade({
         "Sno": sc.Sno, "Sname": sname,
         "Cno": sc.Cno, "Cname": cname,
         "grade": sc.grade
-    } for sc, sname, cname in rows]
+    }) for sc, sname, cname in rows]
 
 @app.put("/api/teacher/enrollments/{Sno}/{Cno}/grade")
 def teacher_update_grade(Sno: str, Cno: str,
                          body: schemas.GradeUpdate,
                          current=Depends(require_role(["teacher"])),
                          db: Session = Depends(get_db)):
-    sc = crud.set_grade(db, Sno, Cno, current["account_no"],
-                        body.grade if body.grade is not None else None)
+    grade_val = None if (body.grade is None or body.grade == "") else int(body.grade)
+    sc = crud.set_grade(db, Sno, Cno, current["account_no"], grade_val)
     if not sc:
         raise HTTPException(404, "选课记录不存在")
     return {"ok": True}
@@ -313,16 +314,23 @@ def change_password(
     db: Session = Depends(get_db),
 ):
     if len(payload.new_password) < 6:
-        raise HTTPException(400, "新密码至少 6 位")
+        raise HTTPException(status_code=400, detail="新密码至少 6 位")
 
     user = crud.get_user_by_account(db, current["account_no"])
     if not user:
-        raise HTTPException(404, "用户不存在")
+        raise HTTPException(status_code=404, detail="用户不存在")
 
     # 校验旧密码
     if not auth.verify_password(payload.old_password, user.password_hash):
-        raise HTTPException(400, "当前密码不正确")
+        raise HTTPException(status_code=400, detail="当前密码不正确")
 
-    # 复用项目已有函数完成加密与保存
+    # 设置新密码（内部完成加密）
     crud.set_user_password(db, user.account_no, payload.new_password)
     return {"ok": True, "msg": "密码已更新"}
+
+
+def _normalize_grade(row: dict) -> dict:
+    g = row.get("grade", None)
+    if g is None or g == "":
+        return {**row, "grade": None}
+    return {**row, "grade": str(g)}

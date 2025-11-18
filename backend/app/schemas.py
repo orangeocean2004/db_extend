@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Union
 
 # ========== 管理员创建用户 ==========
 class AdminCreateUser(BaseModel):
@@ -56,7 +56,7 @@ class EnrollmentOut(BaseModel):
     Cno: str
     Tno: str
     Cname: Optional[str] = None
-    grade: Optional[str] = None
+    grade: Optional[Union[str, int]] = None
 
 # ========== 档案 ==========
 class StudentOut(BaseModel):
@@ -89,14 +89,16 @@ class StudentSelfUpdate(BaseModel):
     Sdept: Optional[str] = None
     Sage: Optional[int] = None
 
+
 class StudentEnrollmentOut(BaseModel):
     Cno: str
     Tno: str
     Tname: Optional[str] = None   # 新增老师姓名
     Cname: Optional[str] = None
     Ccredit: Optional[float] = None
-    grade: Optional[str] = None
-
+    grade: Optional[Union[str, int]] = None
+    
+    
 class TeacherSelfUpdate(BaseModel):
     Tname: Optional[str] = None
     Tdept: Optional[str] = None
@@ -107,9 +109,22 @@ class TeacherEnrollmentOut(BaseModel):
     Sname: Optional[str] = None
     Cno: str
     Cname: Optional[str] = None
-    grade: Optional[str] = None
+    grade: Optional[Union[str, int]] = None
+    
     
 # ========== 通用：修改密码 ==========
 class ChangePasswordIn(BaseModel):
     old_password: str
     new_password: str
+    
+# ========== 成绩入参（前端空串表示清空） ==========
+class GradeIn(BaseModel):
+    grade: Optional[str] = None
+    
+class AdminEnrollmentOut(BaseModel):
+    Sno: str
+    Sname: Optional[str] = None
+    Cno: str
+    Cname: Optional[str] = None
+    Tno: Optional[str] = None
+    grade: Optional[Union[str, int]] = None
